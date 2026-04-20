@@ -176,6 +176,7 @@ def _log_attack(r: AttackReport):
 
 # ---------- AI 回合 ----------
 def _run_ai_turn() -> Dict:
+    """执行 AI 的完整回合（一次性完成：准备+行动+部署+结束）。"""
     g = SESSION.game
     ai = SESSION.ai
     if not g or not ai: return {"ok": False, "message": "无 AI"}
@@ -194,56 +195,86 @@ def _run_ai_turn() -> Dict:
         # 初始部署
         if g.phase == Phase.INITIAL_DEPLOY:
             placements = ai.do_initial_deploy()
-            g.initial_deploy(placements)
+            try:
+                g.initial_deploy(placements)
+            except Exception:
+                g.initial_deploy({})
             total = sum(len(v) for v in placements.values())
             _log(f"{ai_name} 初始部署 {total} 张")
             return {"ok": True}
 
-        # 正常回合
-        actions = ai.play_turn()
-        for act in actions:
-            if act["type"] == "prepare":
-                _log(f"{ai_name} 准备阶段完成")
-            elif act["type"] == "train":
-                _log(f"{ai_name} 训练")
-            elif act["type"] == "recruit":
-                _log(f"{ai_name} 征兵")
-            elif act["type"] == "reorg":
-                _log(f"{ai_name} 重编")
-            elif act["type"] == "attack":
-                zone = act["zone"]
-                _log(f"{ai_name} 发起攻击（作战区{zone}）")
-                # 驱动攻击生成器
-                try:
-                    gen = g.attack_steps(zone)
-                    ans = None
+        # 正常回合：一次性跑完 准备→行动→部署→结束回合
+        # 准备阶段
+        if g.phase == Phase.PREPARE:
+            g.do_prepare({})
+            _log(f"{ai_name} 准备阶段：全部前移")
+
+        # 行动阶段
+        if g.phase == Phase.ACTION:
+            actions = ai.play_turn()
+            for act in actions:
+                if act["type"] == "train":
+                    _log(f"{ai_name} 训练")
+                elif act["type"] == "recruit":
+                    _log(f"{ai_name} 征兵")
+                elif act["type"] == "reorg":
+                    _log(f"{ai_name} 重编")
+                elif act["type"] == "attack":
+                    zone = act["zone"]
+                    _log(f"{ai_name} 发起攻击（作战区{zone}）")
                     try:
-                        while True:
-                            req = next(gen) if ans is None else gen.send(ans)
-                            ans = ai.decide(req)
-                    except StopIteration as e:
-                        report = e.value
-                        _log_attack(report)
-                        return {"ok": True, "attack_report": _serialize_report(report)}
-                except GameOverError as e:
-                    if isinstance(e.payload, AttackReport): _log_attack(e.payload)
-                    _log(f"##### 游戏结束：{g.players[e.winner_idx].name} 获胜 #####")
-                    return {"ok": True, "game_over": {"winner": e.winner_idx, "reason": e.reason}}
-            elif act["type"] == "deploy":
-                total = sum(len(v) for v in act.get("placements", {}).values())
-                _log(f"{ai_name} 部署 {total} 张")
+                        gen = g.attack_steps(zone)
+                        ans = None
+                        try:
+                            while True:
+                                req = next(gen) if ans is None else gen.send(ans)
+                                ans = ai.decide(req)
+                        except StopIteration as e:
+                            report = e.value
+                            _log_attack(report)
+                            return {"ok": True, "attack_report": _serialize_report(report)}
+                    except GameOverError as e:
+                        if isinstance(e.payload, AttackReport): _log_attack(e.payload)
+                        _log(f"##### 游戏结束：{g.players[e.winner_idx].name} 获胜 #####")
+                        return {"ok": True, "game_over": {"winner": e.winner_idx, "reason": e.reason}}
+                elif act["type"] == "deploy":
+                    pass  # deploy 在 play_turn 内已执行
+
+            # 如果还在 ACTION 阶段（没攻击），结束行动
+            if g.phase == Phase.ACTION:
+                g.end_action_phase()
+
+        # 部署阶段
+        if g.phase == Phase.DEPLOY:
+            placements = ai._choose_deploy()
+            try:
+                g.deploy(placements)
+            except Exception:
+                g.deploy({})
+            total = sum(len(v) for v in placements.values())
+            _log(f"{ai_name} 部署 {total} 张")
 
         # 结束回合
         if g.phase in (Phase.ACTION, Phase.DEPLOY):
-            old = ai_name
             g.end_turn()
-            _log(f"{old} 结束回合")
+            _log(f"{ai_name} 结束回合")
+
         return {"ok": True}
     except GameOverError as e:
         _log(f"##### 游戏结束：{g.players[e.winner_idx].name} 获胜 #####")
         return {"ok": True, "game_over": {"winner": e.winner_idx, "reason": e.reason}}
     except Exception as e:
-        return {"ok": False, "message": f"AI 错误: {e}"}
+        # 发生异常时强制结束 AI 回合避免死循环
+        if g.phase == Phase.ACTION:
+            try: g.end_action_phase()
+            except: pass
+        if g.phase == Phase.DEPLOY:
+            try: g.deploy({})
+            except: pass
+            try: g.end_turn()
+            except: pass
+        _log(f"{ai_name} 回合异常: {e}")
+        return {"ok": True}
 
 # ---------- 动作执行 ----------
 def _do_action(action, params) -> Dict:

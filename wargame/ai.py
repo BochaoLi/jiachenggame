@@ -88,17 +88,9 @@ class ChampionAI:
     # === 完整回合执行 ===
 
     def play_turn(self) -> List[Dict]:
-        """执行 AI 的完整回合，返回动作列表。"""
+        """执行 AI 的行动阶段，返回动作列表。不处理准备/部署/结束回合。"""
         actions = []
         g = self.game
-
-        # 准备阶段
-        if g.phase == Phase.PREPARE:
-            if self.rng.random() < self.p["prepare_all"]:
-                g.do_prepare({})
-            else:
-                g.do_prepare({0: 0, 1: 0, 2: 0})
-            actions.append({"type": "prepare"})
 
         # 行动阶段
         if g.phase == Phase.ACTION:
@@ -132,18 +124,6 @@ class ChampionAI:
                         break
                 else:
                     break
-
-            if g.phase == Phase.ACTION:
-                g.end_action_phase()
-
-        # 部署阶段
-        if g.phase == Phase.DEPLOY:
-            placements = self._choose_deploy()
-            try:
-                g.deploy(placements)
-            except (IllegalActionError, Exception):
-                g.deploy({})
-            actions.append({"type": "deploy", "placements": placements})
 
         return actions
 
