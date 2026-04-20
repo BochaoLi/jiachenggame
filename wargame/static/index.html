@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Poker Battle · 扑克大战</title>
+  <link rel="stylesheet" href="/static/style.css"/>
+</head>
+<body>
+  <!-- 新对局 overlay -->
+  <div id="setup-overlay" class="overlay">
+    <div class="modal">
+      <h1>扑克大战 Poker Battle</h1>
+      <p class="subtitle">1.8 规则 · 同屏双人对战</p>
+      <label>玩家 1 <input id="s-n1" value="玩家A"/></label>
+      <label>玩家 2 <input id="s-n2" value="玩家B"/></label>
+      <label>随机种子 <input id="s-seed" placeholder="留空=随机"/></label>
+      <label>先手 <select id="s-first"><option value="0">玩家 1</option><option value="1">玩家 2</option></select></label>
+      <label>对手 <select id="s-mode"><option value="pvp">双人对战（同屏）</option><option value="ai">vs AI（冠军策略 Elo 1960）</option></select></label>
+      <fieldset><legend>特殊规则（可选）</legend>
+        <label><input type="checkbox" id="s-four"/> 四象防御</label>
+        <label><input type="checkbox" id="s-consec"/> 连张</label>
+      </fieldset>
+      <button id="s-start" class="primary">开始游戏</button>
+      <details><summary>规则速查</summary>
+        <ul class="rules">
+          <li>每人：7手牌+13牌库，剩12张为墓地</li>
+          <li>开局换牌→初始部署→正式回合</li>
+          <li>回合：准备(待战→作战)→行动(2点,5种操作)→部署(手牌→待战)</li>
+          <li>先手第一回合仅1点行动力</li>
+          <li>攻击：翻1-2张,第一张花色决定效果模式</li>
+          <li>♣攻击翻倍 ♠防御翻倍+沉默 ♥急救+抽牌补队 ♦墓地→牌库</li>
+          <li>大本营惩罚：A=1, 10JQK=5, 无花色效果</li>
+          <li>击毁跳过弃牌效果，溢出可贯穿</li>
+        </ul>
+      </details>
+    </div>
+  </div>
+
+  <!-- 换人遮罩 -->
+  <div id="seat-overlay" class="overlay hidden">
+    <div class="modal">
+      <h2 id="seat-text">请入座</h2>
+      <p class="hint">屏幕已遮挡。准备好后点击进入。</p>
+      <button id="seat-enter" class="primary">我准备好了</button>
+    </div>
+  </div>
+
+  <!-- 主界面：左右分栏 -->
+  <main id="game" class="hidden">
+    <!-- 左侧：场地全貌 -->
+    <div class="left-panel">
+      <header class="topbar">
+        <div>
+          <strong id="turn-info">回合 1</strong>
+          <span id="phase-badge" class="badge">准备</span>
+          <span id="ap-badge" class="badge alt">行动力 2</span>
+          <span class="badge alt">墓地 <span id="grave-count">0</span></span>
+        </div>
+        <div><button id="btn-newgame" class="small">新对局</button></div>
+      </header>
+
+      <!-- 对手 -->
+      <section class="player foe">
+        <div class="player-header">
+          <strong id="foe-name">对手</strong>
+          <span class="badge sm">手牌 <span id="foe-hand">0</span></span>
+          <span class="badge sm">牌库 <span id="foe-deck">0</span></span>
+        </div>
+        <div class="zone-row">
+          <div class="zone-label">作战</div>
+          <div class="zones" id="foe-front"></div>
+        </div>
+        <div class="zone-row">
+          <div class="zone-label">待战</div>
+          <div class="zones" id="foe-back"></div>
+        </div>
+      </section>
+
+      <!-- 分隔 -->
+      <div class="divider"></div>
+
+      <!-- 我方 -->
+      <section class="player me">
+        <div class="zone-row">
+          <div class="zone-label">作战</div>
+          <div class="zones" id="me-front"></div>
+        </div>
+        <div class="zone-row">
+          <div class="zone-label">待战</div>
+          <div class="zones" id="me-back"></div>
+        </div>
+        <div class="player-header">
+          <strong id="me-name">我</strong>
+          <span class="badge sm">牌库 <span id="me-deck">0</span></span>
+        </div>
+        <div class="hand-row">
+          <div class="hand-label">手牌</div>
+          <div id="me-hand" class="hand"></div>
+        </div>
+      </section>
+    </div>
+
+    <!-- 右侧：操作/决策面板 -->
+    <div class="right-panel">
+      <div class="panel-title" id="panel-title">操作面板</div>
+      <div class="panel-content" id="panel-content">
+        <!-- 动态渲染 -->
+      </div>
+      <div class="panel-status" id="panel-status"></div>
+      <div class="log-panel">
+        <div class="log-title">事件日志</div>
+        <div id="log" class="log"></div>
+      </div>
+    </div>
+  </main>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
