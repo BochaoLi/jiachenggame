@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+*.exe
+*.json
+!package.json
+phase_*_results.json
+phase_*_strategies.json
+bench_*.json
+server.log
