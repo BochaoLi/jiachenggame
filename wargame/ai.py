@@ -204,7 +204,7 @@ class ChampionAI:
         first_clubs = (cards[0].suit == Suit.CLUBS)
         val = 0
         for c in cards:
-            v = c.base_value(ace_as_high=True)
+            v = c.base_value(ace_high=True)
             if first_clubs and c.suit == Suit.CLUBS:
                 v *= 2
             val += v
