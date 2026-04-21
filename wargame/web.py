@@ -228,7 +228,14 @@ def _run_ai_turn() -> Dict:
                         try:
                             while True:
                                 req = next(gen) if ans is None else gen.send(ans)
-                                ans = ai.decide(req)
+                                if req.get("by") == SESSION.ai_idx:
+                                    ans = ai.decide(req)
+                                else:
+                                    # 人类需要决策——暂存生成器，返回给前端
+                                    SESSION.attack_gen = gen
+                                    SESSION.pending = req
+                                    return {"ok": True, "pending": True,
+                                            "request": _serialize_pending()}
                         except StopIteration as e:
                             report = e.value
                             _log_attack(report)

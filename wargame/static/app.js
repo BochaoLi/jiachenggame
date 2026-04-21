@@ -113,7 +113,7 @@ function renderRightPanel(){
   if(localAttackReport){
     T.textContent="攻击结算";
     renderAttackReportInPanel(P,localAttackReport);
-    P.appendChild(el("button",{class:"primary",style:"margin-top:12px;",onclick:()=>{localAttackReport=null;render();}},"确认"));
+    P.appendChild(el("button",{class:"primary",style:"margin-top:12px;",onclick:async()=>{localAttackReport=null;if(S.is_ai_turn){await runAiTurn();}else{render();}}},"确认"));
     return;
   }
   // 重编模式
@@ -275,7 +275,13 @@ async function submitDec(ans){
   const r=await postDecision(ans);
   if(!r.ok){flash(r.message);render();return;}
   if(r.pending){render();return;}
-  if(r.attack_report){localAttackReport={report:r.attack_report,game_over:r.game_over};}
+  if(r.attack_report){localAttackReport={report:r.attack_report,game_over:r.game_over||null};}
+  // 如果攻击结算完毕但仍然是 AI 回合（AI 攻击完成后还需部署+结束回合）
+  if(S.is_ai_turn && !r.pending){
+    render(); // 先渲染攻击报告
+    // 等用户看完报告后再继续 AI（通过攻击报告的"确认"按钮触发）
+    return;
+  }
   render();
 }
 
@@ -513,6 +519,11 @@ async function runAiTurn(){
       render();return;
     }
     if(r.attack_report)localAttackReport={report:r.attack_report,game_over:null};
+    // AI 攻击中人类需要做决策
+    if(r.pending && S.pending_request){
+      render(); // 渲染决策面板让人类操作
+      return;   // 人类操作完后 submitDec 会继续推进
+    }
     if(!S.is_ai_turn)break;
     await new Promise(r=>setTimeout(r,150));
   }
